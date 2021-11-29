@@ -179,7 +179,7 @@ class MIW4P(Method2D):
         self.om = 0.0
 
         self.dt = system.t[1]-system.t[0]
-        self.miwk = 1.0/(2**1.5*system.m)
+        self.miwk = 1.0/system.m
         self.g = gamma
         self.M = 4*self.system.m
 
@@ -211,35 +211,37 @@ class MIW4P(Method2D):
         self.sigmas += self.sv*self.dt/2.0
         self.phi += self.om*self.dt/2.0
 
-        evecs = self.evecs
-
         # Forces
         F = np.array([-self.dV(*p) for p in self.px])
 
         # Force on the center
         cF = np.sum(F, axis=0)
 
-        # Stress forces
-        stress = np.diff(F, axis=0)[[0,2]]
+        # Stresses
+        dF1, dF2 = np.diff(F, axis=0)[[0,2]]*2**0.5
         evecs = self.evecs
-        sF = np.sum(stress*evecs, axis=1)
+        e1, e2 = evecs
+        sF = np.array([dF1@e1, dF2@e2])
+        # Centrifugal force
+        rF = self.M*self.om**2*self.sigmas
         # And the quantum forces
         qF = self.miwk/self.sigmas**3
 
         # Torque
-        e1, e2 = evecs
-        deltas = np.array([-e1, e1, -e2, e2])
-        tF = np.sum(np.cross(deltas, F))
-        J = self.M*np.sum(self.sigmas**2)        
+        s1, s2 = self.sigmas
+        tF = (s1*e2@dF1-s2*e1@dF2)
+        tF -= 2*self.M*self.om*(self.sigmas@self.sv)
+        J = self.M*np.sum(self.sigmas**2)
 
         # Damping if required
         if self.it:
+            # Coefficients are picked to optimise faster
             cF -= self.g*self.cv
-            sF -= self.g*self.sv
-            tF -= self.g*self.om
+            sF -= 2*self.g*self.sv
+            tF -= 0.5*self.g*self.om
 
         self.cv += cF*self.dt/self.M
-        self.sv += (sF+qF)*self.dt/self.M
+        self.sv += (sF+qF+rF)*self.dt/self.M
         self.om += tF*self.dt/J
 
         self.mu += self.cv*self.dt/2.0
