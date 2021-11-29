@@ -168,14 +168,16 @@ class MIW4P(Method2D):
         evals, evecs = np.linalg.eigh(Smat)
 
         self.sigmas = evals**0.5
-        self.evecs = evecs.T
+        evecs = evecs.T
+        evecs[1] *= np.cross(*evecs) # Make sure they're right-handed
+        # So we want the first eigenvector to be our "x" axis
+        self.phi = np.arctan2(evecs[0,1], evecs[0,0])
 
-        # Particles: positions and velocities
-        self.px = np.array([self.mu + 2**0.5*d*s*a 
-            for (s, a) in zip(self.sigmas, self.evecs) 
-            for d in (-1, 1)])
+        # Now center velocity, expansion velocities, and rotation
+        self.cv = np.zeros(2)
+        self.sv = np.zeros(2)
+        self.om = 0.0
 
-        self.pv = np.zeros((4,2))
         self.dt = system.t[1]-system.t[0]
         self.miwk = 1.0/(2**1.5*system.m)
         self.g = gamma
@@ -190,25 +192,39 @@ class MIW4P(Method2D):
 
         self.dbells = None
 
+    @property
+    def evecs(self):
+        cp = np.cos(self.phi)
+        sp = np.sin(self.phi)
+        return np.array([[cp, sp], [-sp, cp]])
+    
+    @property
+    def px(self):
+        e1, e2 = self.evecs
+        s1, s2 = self.sigmas
+        return np.array([-s1*e1, s1*e1, -s2*e2, s2*e2])*2**0.5+self.mu[None,:]
+
     def step(self):
 
-        self.px += self.pv*self.dt/2.0
+        self.mu += self.cv*self.dt/2.0
+        self.sigmas += self.sv*self.dt/2.0
+        self.phi += self.om*self.dt/2.0
 
-        self.mu = np.average(self.px, axis=0)
-        deltas = np.diff(self.px, axis=0)[[0,2]]
-        norms = np.linalg.norm(deltas, axis=1)
-        self.sigmas = norms/2**1.5
-        self.evecs = deltas/norms[:,None]
+        evecs = self.evecs
 
         # Forces
         F = np.array([-self.dV(*p) for p in self.px])
 
-        # Mean force
-        mF = np.average(F, axis=0)
+        # Force on the center
+        cF = np.average(F, axis=0)
+        self.cv += cF*self.dt/self.system.m
+
         # Stress forces
         stress = np.diff(F, axis=0)[[0,2]]
-        stress = np.sum(stress*self.evecs, axis=1)[:,None]*self.evecs
-        sF = np.array([-stress[0], stress[0], -stress[1], stress[1]])/2
+        evecs = self.evecs
+        sF = np.sum(stress*evecs, axis=1)
+        self.sv += sF*self.dt/
+        print(sF)
         # Torque forces
         torque = np.average(np.cross(self.px-self.mu[None,:], F))
 
