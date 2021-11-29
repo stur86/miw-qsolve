@@ -181,6 +181,7 @@ class MIW4P(Method2D):
         self.dt = system.t[1]-system.t[0]
         self.miwk = 1.0/(2**1.5*system.m)
         self.g = gamma
+        self.M = 4*self.system.m
 
         # Interpolate potential
         linxy = xy.reshape((-1,2))
@@ -216,57 +217,43 @@ class MIW4P(Method2D):
         F = np.array([-self.dV(*p) for p in self.px])
 
         # Force on the center
-        cF = np.average(F, axis=0)
-        self.cv += cF*self.dt/self.system.m
+        cF = np.sum(F, axis=0)
 
         # Stress forces
         stress = np.diff(F, axis=0)[[0,2]]
         evecs = self.evecs
         sF = np.sum(stress*evecs, axis=1)
-        self.sv += sF*self.dt/
-        print(sF)
-        # Torque forces
-        torque = np.average(np.cross(self.px-self.mu[None,:], F))
+        # And the quantum forces
+        qF = self.miwk/self.sigmas**3
 
-        s1, s2 = self.sigmas
-        e1, e2 = self.evecs
-        tF = np.array([-torque*e2/s1, torque*e2/s1, torque*e1/s2, -torque*e1/s2])/2**0.5
+        # Torque
+        e1, e2 = evecs
+        deltas = np.array([-e1, e1, -e2, e2])
+        tF = np.sum(np.cross(deltas, F))
+        J = self.M*np.sum(self.sigmas**2)        
 
-        # Quantum force
-        is3 = self.sigmas**(-3)
-        qF = self.miwk*np.array([-is3[0]*e1,
-                                  is3[0]*e1, 
-                                 -is3[1]*e2, 
-                                  is3[1]*e2])
-        F = mF + sF + tF + qF
         # Damping if required
         if self.it:
-            F -= self.g*self.pv
+            cF -= self.g*self.cv
+            sF -= self.g*self.sv
+            tF -= self.g*self.om
 
-        self.pv += F*self.dt/self.system.m
-        self.px += self.pv*self.dt/2.0
+        self.cv += cF*self.dt/self.M
+        self.sv += (sF+qF)*self.dt/self.M
+        self.om += tF*self.dt/J
 
-        self.mu = np.average(self.px, axis=0)
-        deltas = np.diff(self.px, axis=0)[[0,2]]
-        norms = np.linalg.norm(deltas, axis=1)
-        self.sigmas = norms/2**1.5
-        self.evecs = deltas/norms[:,None]
-        # Now make sure it's all orthogonal
-        e1, e2 = self.evecs
-        e2 -= (e1@e2)*e1
-        self.evecs[1] = e2/np.linalg.norm(e2)
-
-        e1, e2 = self.evecs
-        s1, s2 = self.sigmas
-
-        self.px = np.array([-s1*e1, s1*e1, -s2*e2, s2*e2])*2**0.5+self.mu[None,:]
+        self.mu += self.cv*self.dt/2.0
+        self.sigmas += self.sv*self.dt/2.0
+        self.phi += self.om*self.dt/2.0
 
         # And update the wavefunction...
         (s1, s2), (e1, e2) = self.sigmas, self.evecs
+
         xy = self.system.xy-self.mu[None,None]
         iS = e1[:,None]*e1[None,:]/s1**2 + e2[:,None]*e2[None,:]/s2**2
         kernel = np.sum((xy@iS)*xy, axis=2)
         rho = np.exp(-0.5*kernel)/(2*np.pi*np.linalg.norm(self.sigmas))
+
         self.psi = rho**0.5
 
     def plot(self):
