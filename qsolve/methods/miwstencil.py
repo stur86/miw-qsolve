@@ -62,7 +62,7 @@ class MIW2P(Method1D):
 
     def plot(self):
 
-        super(self.__class__, self).plot()
+        artists = super(self.__class__, self).plot()
 
         if self.axes:
             ax = self.axes
@@ -70,6 +70,8 @@ class MIW2P(Method1D):
                 self.dbells = ax.plot(self.px, [self.ploth, self.ploth], '-o')[0]
             else:
                 self.dbells.set_xdata(self.px)
+
+        return artists + [self.dbells,]
 
 class MIW3P(Method1D):
 
@@ -131,7 +133,7 @@ class MIW3P(Method1D):
 
     def plot(self):
 
-        super(self.__class__, self).plot()
+        artists = super(self.__class__, self).plot()
 
         if self.axes:
             ax = self.axes
@@ -139,6 +141,9 @@ class MIW3P(Method1D):
                 self.dbells = ax.plot(self.px, [self.ploth]*3, '-o')[0]
             else:
                 self.dbells.set_xdata(self.px)
+
+        return artists + [self.dbells,]
+
 
 class MIW4P(Method2D):
 
@@ -260,7 +265,7 @@ class MIW4P(Method2D):
 
     def plot(self):
 
-        super(self.__class__, self).plot()
+        artists = super(self.__class__, self).plot()
 
         if self.axes:
             ax = self.axes
@@ -274,3 +279,5 @@ class MIW4P(Method2D):
                 db1.set_ydata(self.px[:2,1])
                 db2.set_xdata(self.px[2:,0])            
                 db2.set_ydata(self.px[2:,1])
+
+        return artists + self.dbells

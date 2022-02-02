@@ -70,6 +70,9 @@ class Method1D(Method):
             else:
                 self.graph.set_ydata(self.rho)
 
+        return [self.graph,]
+
+
 class Method2D(Method):
 
     def __init__(self, system, psi0, imtime=False, acoeff=20.0, 
@@ -117,3 +120,5 @@ class Method2D(Method):
                     c.remove()
             self.graph = ax.contour(self.system.x, self.system.y, self.rho.T, 
                                     cmap=self.cm, levels=self.levels)
+
+        return [self.graph,]
