@@ -98,7 +98,7 @@ class MIW3P(Method1D):
         self.dV = self.V.derivative()
 
         # For convenience when plotting
-        self.ploth = np.amax(rho0)/3.0
+        self.ploth = np.amax(rho0)/3.5
         self.dbells = None
 
     def step(self):
@@ -223,21 +223,20 @@ class MIW4P(Method2D):
         cF = np.sum(F, axis=0)
 
         # Stresses
-        dF1, dF2 = np.diff(F, axis=0)[[0,2]]*2**0.5
+        dF1, dF2 = np.array([F[1]-F[0], F[3]-F[2]])*2**0.5
         evecs = self.evecs
         e1, e2 = evecs
         sF = np.array([dF1@e1, dF2@e2])
         # Centrifugal force
         rF = self.M*self.om**2*self.sigmas
         # And the quantum forces
-        qF = self.miwk/self.sigmas**3
+        qF = self.miwk/(self.sigmas**3)
 
         # Torque
         s1, s2 = self.sigmas
         tF = (s1*e2@dF1-s2*e1@dF2)
-        tF -= 2*self.M*self.om*(self.sigmas@self.sv)
         J = self.M*np.sum(self.sigmas**2)
-
+        
         # Damping if required
         if self.it:
             # Coefficients are picked to optimise faster
@@ -259,13 +258,13 @@ class MIW4P(Method2D):
         xy = self.system.xy-self.mu[None,None]
         iS = e1[:,None]*e1[None,:]/s1**2 + e2[:,None]*e2[None,:]/s2**2
         kernel = np.sum((xy@iS)*xy, axis=2)
-        rho = np.exp(-0.5*kernel)/(2*np.pi*np.linalg.norm(self.sigmas))
+        rho = np.exp(-0.5*kernel)/(2*np.pi*s1*s2)
 
         self.psi = rho**0.5
 
     def plot(self):
 
-        artists = super(self.__class__, self).plot()
+        artists = super().plot()
 
         if self.axes:
             ax = self.axes
@@ -280,4 +279,4 @@ class MIW4P(Method2D):
                 db2.set_xdata(self.px[2:,0])            
                 db2.set_ydata(self.px[2:,1])
 
-        return artists + self.dbells
+        return artists + [db1, db2]

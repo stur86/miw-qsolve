@@ -121,4 +121,4 @@ class Method2D(Method):
             self.graph = ax.contour(self.system.x, self.system.y, self.rho.T, 
                                     cmap=self.cm, levels=self.levels)
 
-        return [self.graph,]
+        return self.graph.collections
